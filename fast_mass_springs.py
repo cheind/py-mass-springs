@@ -31,7 +31,7 @@ class BlockCoordinateSolver:
         self.L = self.compute_L()
         self.J = self.compute_J()
 
-        self.d = np.empty(self.ndim * self.nsprings)
+        self.d = np.empty((self.ndim * self.nsprings, 1))
         self.b = np.zeros((self.nparticles * self.ndim, 1))
 
         # Prefactor M + L * timestep**2
@@ -85,7 +85,7 @@ class BlockCoordinateSolver:
             return a / n.reshape(-1, 1)
 
         # Compute the directions of springs using the current position of the particles
-        self.d = self.springs['r'] * normalized(self.particles['x'][self.springs['second']] - self.particles['x'][self.springs['first']])
+        self.d[:] = (self.springs['r'] * normalized(self.particles['x'][self.springs['second']] - self.particles['x'][self.springs['first']])).reshape(-1, 1) 
 
     def update_x(self):
         """Computes new particles positions by solving Ax=b."""
@@ -93,35 +93,39 @@ class BlockCoordinateSolver:
         # Update the right hand side.
         self.b.fill(0.)
 
-        self.b -= self.timestep**2 * self.J * self.d.reshape(-1, 1) 
+        self.b += self.timestep**2 * self.J * self.d
         self.b += self.M * (2 * self.particles['x'] - self.particles['xprev']).reshape(-1, 1) 
         
-        self.particles['x'] = self.solveAxb(self.b).reshape(self.nparticles, -1)
+        self.particles['xprev'][:] = self.particles['x']
+        self.particles['x'][:] = self.solveAxb(self.b).reshape(self.nparticles, -1)       
 
-
-    def solve(self, iterations):        
+    def solve(self, iterations):      
         for _ in range(iterations):
             self.update_d()
             self.update_x()
 
-        #self.particles['xprev'] = self.particles['x']
-            
-        #self.update_euler()
-
-
 particles['m'] = 1.
+particles[1]['m'] = 100000
 particles[0]['x'] = [0, 0]
 particles[1]['x'] = [1.5, 0]
-particles[2]['x'] = [2, 0]
+particles[2]['x'] = [100, 0]
+particles['xprev'][:] = particles['x']
 springs[0]['first'] = 0
 springs[0]['second'] = 1
 springs[1]['first'] = 1
 springs[1]['second'] = 2
-springs['k'] = 1.
-springs['r'] = 0.5
+springs['k'] = 10
+springs['r'] = 1
 
 solver = BlockCoordinateSolver(particles, springs, 1.0 / 30.0)
 
 
-
+solver.solve(10)
+print(particles['x'])
+solver.solve(10)
+print(particles['x'])
+solver.solve(10)
+print(particles['x'])
+solver.solve(10)
+print(particles['x'])
 
